@@ -8,7 +8,10 @@
       "Bash(docker run *)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/usuarios)",
       "Bash(break)",
-      "Bash(./gradlew test *)"
+      "Bash(./gradlew test *)",
+      "Bash(/usr/libexec/java_home -V)",
+      "Bash(export JAVA_HOME=\"/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home\")",
+      "Bash(export PATH=\"$JAVA_HOME/bin:$PATH\")"
     ]
   }
 }

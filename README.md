@@ -73,6 +73,35 @@ Pré-requisito: Docker Desktop (ou daemon compatível) em execução.
 
 Opções de ajuste via variável de ambiente `JAVA_OPTS` (ex.: `-e JAVA_OPTS="-Xmx256m"`).
 
+## CI/CD (GitHub Actions + Docker Hub)
+
+O workflow `.github/workflows/ci.yml` é disparado a cada push na branch `main` e executa:
+
+1. Setup do JDK 21 (Temurin) com cache do Gradle.
+2. `./gradlew test` — valida os testes unitários.
+3. `./gradlew bootJar` — empacota o jar.
+4. Build e push da imagem Docker para o Docker Hub com as tags:
+   - `latest`
+   - `sha-<commit-curto>` (para rastreabilidade)
+
+### Configuração única no GitHub
+
+Em **Settings → Secrets and variables → Actions → New repository secret**, crie:
+
+| Secret               | Valor                                                                 |
+|----------------------|-----------------------------------------------------------------------|
+| `DOCKERHUB_USERNAME` | Seu usuário do Docker Hub                                             |
+| `DOCKERHUB_TOKEN`    | Access Token gerado em Docker Hub → Account Settings → Security       |
+
+O repositório no Docker Hub será `docker.io/<DOCKERHUB_USERNAME>/pos-graduacao` — crie-o (público ou privado) antes do primeiro push.
+
+### Consumindo a imagem publicada
+
+```bash
+docker pull <seu-usuario>/pos-graduacao:latest
+docker run -d --name pos-graduacao -p 8080:8080 <seu-usuario>/pos-graduacao:latest
+```
+
 ## Banco de dados
 
 O H2 grava em arquivo no diretório `./data/` (`posgraduacao.mv.db`), então os dados persistem entre execuções. Para resetar o estado basta apagar o diretório `data/` — a tabela `usuario` é recriada automaticamente na próxima inicialização.
