@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <title>Cadastro de Usuários</title>
+    <style>
+        :root {
+            --bg: #f5f7fa;
+            --card: #ffffff;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --danger: #dc2626;
+            --border: #e5e7eb;
+            --text: #111827;
+            --muted: #6b7280;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 32px 16px;
+        }
+        .container { max-width: 880px; margin: 0 auto; }
+        h1 { margin: 0 0 24px; }
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 2px rgba(0,0,0,.04);
+        }
+        h2 { margin: 0 0 16px; font-size: 18px; }
+        form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; }
+        input {
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+        }
+        input:focus { border-color: var(--primary); }
+        button {
+            padding: 10px 16px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        button:hover { background: var(--primary-hover); }
+        button.danger { background: var(--danger); }
+        button.secondary { background: #6b7280; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td {
+            text-align: left;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+        th { color: var(--muted); font-weight: 600; }
+        .actions { display: flex; gap: 6px; }
+        .actions button { padding: 6px 10px; font-size: 12px; }
+        .toast {
+            position: fixed; top: 20px; right: 20px;
+            padding: 12px 16px; border-radius: 6px;
+            background: #111827; color: white; font-size: 14px;
+            opacity: 0; transition: opacity .3s; pointer-events: none;
+            max-width: 360px;
+        }
+        .toast.show { opacity: 1; }
+        .toast.error { background: var(--danger); }
+        .empty { color: var(--muted); text-align: center; padding: 24px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Cadastro de Usuários</h1>
+
+    <div class="card">
+        <h2 id="form-title">Novo usuário</h2>
+        <form id="form">
+            <input type="hidden" id="id" />
+            <input type="text" id="nome" placeholder="Nome" required />
+            <input type="email" id="email" placeholder="Email" required />
+            <div style="display:flex; gap:8px;">
+                <button type="submit" id="submit-btn">Salvar</button>
+                <button type="button" class="secondary" id="cancel-btn" style="display:none;">Cancelar</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2>Usuários cadastrados</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nome</th>
+                    <th>Email</th>
+                    <th>Criado em</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    const API = '/usuarios';
+
+    const $ = (id) => document.getElementById(id);
+    const form = $('form');
+    const tbody = $('tbody');
+    const toastEl = $('toast');
+
+    function toast(msg, isError = false) {
+        toastEl.textContent = msg;
+        toastEl.classList.toggle('error', isError);
+        toastEl.classList.add('show');
+        setTimeout(() => toastEl.classList.remove('show'), 3000);
+    }
+
+    async function api(method, url, body) {
+        const opts = { method, headers: { 'Content-Type': 'application/json' } };
+        if (body) opts.body = JSON.stringify(body);
+        const res = await fetch(url, opts);
+        if (res.status === 204) return null;
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.message || data.error || `HTTP ${res.status}`);
+        }
+        return data;
+    }
+
+    function formatDate(iso) {
+        if (!iso) return '';
+        const d = new Date(iso);
+        return d.toLocaleString('pt-BR');
+    }
+
+    async function carregar() {
+        try {
+            const lista = await api('GET', API);
+            tbody.innerHTML = '';
+            if (!lista.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty">Nenhum usuário cadastrado</td></tr>';
+                return;
+            }
+            for (const u of lista) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${u.id}</td>
+                    <td>${u.nome}</td>
+                    <td>${u.email}</td>
+                    <td>${formatDate(u.criadoEm)}</td>
+                    <td class="actions">
+                        <button data-edit='${JSON.stringify(u)}'>Editar</button>
+                        <button class="danger" data-del="${u.id}">Excluir</button>
+                    </td>`;
+                tbody.appendChild(tr);
+            }
+        } catch (e) {
+            toast('Erro ao listar: ' + e.message, true);
+        }
+    }
+
+    function resetForm() {
+        form.reset();
+        $('id').value = '';
+        $('form-title').textContent = 'Novo usuário';
+        $('submit-btn').textContent = 'Salvar';
+        $('cancel-btn').style.display = 'none';
+    }
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = $('id').value;
+        const payload = { nome: $('nome').value.trim(), email: $('email').value.trim() };
+        try {
+            if (id) {
+                await api('PUT', `${API}/${id}`, payload);
+                toast('Usuário atualizado');
+            } else {
+                await api('POST', API, payload);
+                toast('Usuário cadastrado');
+            }
+            resetForm();
+            carregar();
+        } catch (e) {
+            toast('Erro ao salvar: ' + e.message, true);
+        }
+    });
+
+    $('cancel-btn').addEventListener('click', resetForm);
+
+    tbody.addEventListener('click', async (e) => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        if (btn.dataset.del) {
+            if (!confirm('Excluir este usuário?')) return;
+            try {
+                await api('DELETE', `${API}/${btn.dataset.del}`);
+                toast('Usuário excluído');
+                carregar();
+            } catch (err) {
+                toast('Erro ao excluir: ' + err.message, true);
+            }
+        } else if (btn.dataset.edit) {
+            const u = JSON.parse(btn.dataset.edit);
+            $('id').value = u.id;
+            $('nome').value = u.nome;
+            $('email').value = u.email;
+            $('form-title').textContent = `Editando #${u.id}`;
+            $('submit-btn').textContent = 'Atualizar';
+            $('cancel-btn').style.display = 'inline-block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    });
+
+    carregar();
+</script>
+</body>
+</html>
+
